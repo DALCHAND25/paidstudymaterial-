@@ -1,133 +1,274 @@
+
 <!doctype html>
 <html lang="hi">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Demo: UPI pay → PDF download (Simulation)</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>DJB Tech — Pay, Upload Screenshot & Chat</title>
 <style>
-  body{font-family:Arial,Helvetica,sans-serif;max-width:760px;margin:24px auto;padding:16px}
-  .card{border:1px solid #e0e0e0;border-radius:8px;padding:18px;box-shadow:0 6px 18px rgba(0,0,0,.04)}
-  h1{font-size:20px;margin:0 0 12px}
-  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-  img.qr{width:220px;height:220px;border:1px solid #ddd;padding:6px;background:#fff}
-  button{padding:10px 14px;font-size:15px;border-radius:6px;border:0;background:#1e88e5;color:#fff;cursor:pointer}
-  button.ghost{background:#fff;border:1px solid #ccc;color:#222}
-  p.small{font-size:13px;color:#555}
-  a.download-link{display:inline-block;margin-top:14px;padding:10px 14px;background:#43a047;color:#fff;border-radius:6px;text-decoration:none}
+  body{font-family:Arial,Helvetica,sans-serif;background:#f4f6fb;color:#111;margin:0;padding:18px}
+  .wrap{max-width:980px;margin:0 auto}
+  .card{background:#fff;padding:18px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.06)}
+  h1{margin:0 0 8px;font-size:20px}
+  .cols{display:flex;gap:18px;flex-wrap:wrap}
+  .left{min-width:260px}
+  .qr{width:240px;height:240px;border-radius:8px;border:1px solid #e6eefc;padding:8px;background:#fff;display:block}
+  label{display:block;margin-top:10px;font-weight:600}
+  input,textarea,select{width:100%;padding:10px;margin-top:6px;border-radius:6px;border:1px solid #ddd;font-size:14px}
+  button{padding:10px 14px;border-radius:8px;border:0;background:#1e88e5;color:#fff;cursor:pointer}
+  button.ghost{background:#fff;color:#333;border:1px solid #ccc}
+  .muted{color:#666;font-size:13px}
+  .note{margin-top:12px;padding:10px;border-radius:6px;background:#fbfdff;border:1px solid #eef6ff}
+  .chat{border:1px solid #eee;padding:8px;border-radius:6px;height:260px;overflow:auto;background:#fafafa}
+  .chat-msg{padding:6px 8px;margin:6px 0;border-radius:6px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .my{background:#e8f4ff}
+  .status{margin-top:10px}
+  a.download{display:inline-block;margin-top:10px;padding:10px 12px;background:#43a047;color:#fff;border-radius:6px;text-decoration:none}
+  @media(max-width:720px){ .cols{flex-direction:column} .left{margin:0 auto} .qr{width:200px;height:200px} }
 </style>
 </head>
 <body>
-  <div class="card">
-    <h1>DJB Tech — Demo: UPI payment se PDF unlock (Simulation)</h1>
+  <div class="wrap">
+    <div class="card">
+      <h1>DJB Tech — UPI se Payment & Screenshot Upload</h1>
+      <p class="muted">Scan QR & pay. Upload transaction screenshot. Admin approve karega, uske baad PDF download unlock hogi. Chat karne ke liye neeche message bhejein.</p>
 
-    <p class="small">Note: Yeh **demo** hai. Real payment verification ke liye backend + payment gateway (Razorpay/Cashfree/etc.) chahiye.</p>
+      <div class="cols">
+        <div class="left">
+          <img id="qrImg" class="qr" alt="UPI QR">
+          <p style="text-align:center" class="muted">UPI ID: <strong id="upiId"></strong></p>
+          <p style="text-align:center"><a id="openUpi" href="#"><button class="ghost" type="button">Open UPI app</button></a></p>
+        </div>
 
-    <div class="row" style="margin-top:12px">
-      <div>
-        <p><strong>UPI ID:</strong> <code>7879342457@ybl</code></p>
-        <p><strong>Amount:</strong> <span id="amountDisplay">50.00</span> INR</p>
+        <div style="flex:1">
+          <form id="uploadForm">
+            <label>Naam (optional)</label>
+            <input type="text" id="name" placeholder="Aapka naam">
 
-        <!-- UPI deep link (mobile opens UPI app) -->
-        <p>
-          <a id="upiLink" href="#" onclick="openUpi()" class="ghost" style="text-decoration:none;padding:8px 10px;border-radius:6px;border:1px solid #ccc;color:#222;background:#fff">Open UPI app</a>
-        </p>
+            <label>Amount (INR)</label>
+            <input type="number" id="amount" step="0.01" value="50.00" required>
 
-        <p class="small">Agar aap real payment kar chuke ho, "I paid" button dabayein (demo ke liye ye manual). Production me gateway webhook se server automatically mark karega.</p>
+            <label>Upload Payment Screenshot (PNG/JPG/WEBP)</label>
+            <input type="file" id="screenshot" accept="image/*" required>
 
-        <p style="margin-top:8px">
-          <button id="paidBtn">I paid — Unlock PDF</button>
-          <button id="resetBtn" class="ghost" style="margin-left:8px" onclick="resetDemo()">Reset</button>
-        </p>
+            <p class="muted">Max 8 MB recommended. Screenshot me UPI txn id/time dikhna chahiye.</p>
 
-        <div id="status" style="margin-top:12px"></div>
+            <p style="margin-top:10px;">
+              <button type="submit">Upload Screenshot</button>
+              <button id="openUpiBtn" type="button" class="ghost">Open UPI app</button>
+            </p>
+          </form>
 
-        <!-- download link (initially hidden) -->
-        <div id="downloadArea" style="margin-top:14px;display:none">
-          <a id="dl" class="download-link" href="#" download="document.pdf">Download PDF</a>
-          <p class="small" style="margin-top:8px">Yeh download ek demo PDF hai (one-time demo). Replace kar ke apna real PDF yahan host karein ya backend se serve karein.</p>
+          <div class="status" id="status"></div>
+
+          <div id="downloadArea" style="display:none">
+            <a id="downloadBtn" class="download" href="#" target="_blank">Download Approved PDF</a>
+            <p class="muted">Download link active — one-time or until admin sets otherwise.</p>
+          </div>
         </div>
       </div>
 
-      <div>
-        <!-- QR of UPI deep link (scan to open UPI app) -->
-        <img id="qrImg" class="qr" alt="QR">
-        <p class="small" style="margin-top:8px">Scan QR to open UPI app on mobile.</p>
+      <hr style="margin:14px 0">
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:300px">
+          <h3 style="margin:6px 0">Live Chat</h3>
+          <div id="chatBox" class="chat"></div>
+          <div style="margin-top:8px;display:flex;gap:8px">
+            <input id="chatName" placeholder="Your name" style="flex:0 0 160px"/>
+            <input id="chatMsg" placeholder="Type a message" style="flex:1"/>
+            <button id="sendChat">Send</button>
+          </div>
+        </div>
+
+        <div style="width:320px;min-width:260px">
+          <h3 style="margin:6px 0">Upload History / Status</h3>
+          <div id="history" style="max-height:260px;overflow:auto;background:#fafafa;padding:8px;border-radius:6px;border:1px solid #eee"></div>
+          <p class="muted" style="margin-top:8px">Admin approve karne par aapka status update hoga and download link enable ho jayega.</p>
+        </div>
       </div>
     </div>
   </div>
 
+<!-- Firebase SDKs (compat for quick use) -->
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
+
 <script>
-/*
-  Demo behavior:
-  - Constructs UPI deep link using the UPI ID and amount.
-  - QR image uses Google Chart API to show the deep link.
-  - Clicking "Open UPI app" opens the deep link (mobile).
-  - "I paid — Unlock PDF" simulates successful payment and unlocks a pre-bundled PDF (base64).
-  - This is purely frontend simulation — replace with backend verification for production.
+/* ====== PASTE YOUR FIREBASE CONFIGURE OBJECT BELOW ======
+   Go to Firebase Console > Project > Add web app > copy config object
 */
+const firebaseConfig = /* PASTE FIREBASE CONFIG HERE */ {};
 
-const UPI_ID = "7879342457@ybl";
-let amount = 50.00; // default; user can edit this var if needed
+// ---------- Init ----------
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const storage = firebase.storage();
 
-document.getElementById('amountDisplay').textContent = amount.toFixed(2);
+// UPI and QR setup
+const UPI_ID = "dalchandahirwar032@ybl"; // change if needed
+document.getElementById('upiId').textContent = UPI_ID;
 
-// Build UPI deep link (pa,pn,tr,am,cu)
-const tokenRef = 'QRDEMO' + Math.floor(Date.now()/1000);
-const upiDeep = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent('DJB Tech')}&tr=${encodeURIComponent(tokenRef)}&am=${encodeURIComponent(amount.toFixed(2))}&cu=INR`;
-
-// set QR
-const qrUrl = 'https://chart.googleapis.com/chart?cht=qr&chs=400x400&chl=' + encodeURIComponent(upiDeep);
-document.getElementById('qrImg').src = qrUrl;
-
-// set upi link action
-function openUpi(){
-  // On mobile this should prompt the UPI app
-  window.location.href = upiDeep;
+function buildUpiDeep(amount, ref){
+  const pa = encodeURIComponent(UPI_ID);
+  const pn = encodeURIComponent('DJB Tech');
+  const tr = encodeURIComponent(ref || 'QR' + Date.now());
+  const am = encodeURIComponent(Number(amount).toFixed(2));
+  return `upi://pay?pa=${pa}&pn=${pn}&tr=${tr}&am=${am}&cu=INR`;
 }
 
-// Demo PDF (small sample) encoded as base64
-// NOTE: This is a tiny generated PDF that says "Hello PDF".
-const samplePdfBase64 = 
-  "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUiBdIC9Db3VudCAxID4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL01lZGlhQm94IFswIDAgMjAwIDIwMCBdIC9Db250ZW50cyA0IDAgUiA+PgplbmRvYmoKNCAwIG9iago8PCAvTGVuZ3RoIDU1ID4+c3RyZWFtCkJUCg9GMSAxMiBUZgoxMCAxNTAgVGQKKC5IZWxsb1BERikgVGpFCkVUCmVuZHN0cmVhbQplbmRvYmoKcmVmcnt9CnRyYWlsZXIKPDwgL1Jvb3QgMSAwIFIvU2l6ZSA1ID4+Cj4Kc3RhcnR4cmVmCjMyMgpFT0Y=";
+function updateQr(){
+  const amount = document.getElementById('amount').value || 50.00;
+  const ref = 'QR' + Math.floor(Date.now()/1000);
+  const deep = buildUpiDeep(amount, ref);
+  const qr = 'https://chart.googleapis.com/chart?cht=qr&chs=400x400&chl=' + encodeURIComponent(deep);
+  document.getElementById('qrImg').src = qr;
+  document.getElementById('openUpi').href = deep;
+  document.getElementById('openUpiBtn').onclick = () => { window.location.href = deep; };
+}
+updateQr();
+document.getElementById('amount').addEventListener('input', updateQr);
 
-// When user clicks paidBtn, simulate success and show download
-document.getElementById('paidBtn').addEventListener('click', () => {
-  // Simulate server verification delay
-  const status = document.getElementById('status');
-  status.innerHTML = "<em>Checking payment...</em>";
-  setTimeout(() => {
-    // Simulate success
-    status.innerHTML = "<strong style='color:green;'>Payment received (simulated).</strong>";
-    unlockDownload();
-  }, 900); // small delay for UX
+// Handle upload form
+const uploadForm = document.getElementById('uploadForm');
+const statusEl = document.getElementById('status');
+const historyEl = document.getElementById('history');
+let lastUploadedToken = null;
+
+uploadForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('name').value.trim() || 'Guest';
+  const amount = Number(document.getElementById('amount').value || 0).toFixed(2);
+  const file = document.getElementById('screenshot').files[0];
+  if(!file){ alert('Please select a screenshot.'); return; }
+  if(file.size > 8 * 1024 * 1024){ alert('File too large (max 8MB).'); return; }
+
+  statusEl.innerHTML = '<em>Uploading screenshot...</em>';
+
+  try {
+    // create token id
+    const token = 't_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    lastUploadedToken = token;
+
+    // upload to Storage
+    const storageRef = storage.ref().child('uploads/' + token + '/' + file.name);
+    const uploadTask = storageRef.put(file);
+    uploadTask.on('state_changed', null, (err) => {
+      console.error(err);
+      statusEl.innerHTML = '<span class="error">Upload failed.</span>';
+    }, async () => {
+      const url = await uploadTask.snapshot.ref.getDownloadURL();
+      // add to Realtime DB
+      const record = {
+        token: token,
+        name: name,
+        amount: amount,
+        screenshotUrl: url,
+        status: 'pending',
+        createdAt: Date.now()
+      };
+      await db.ref('uploads/' + token).set(record);
+      statusEl.innerHTML = '<span class="success">Uploaded & pending approval. Reference: ' + token + '</span>';
+      // append to history
+      addHistoryRecord(record);
+      // subscribe to changes for this token to enable download when approved
+      listenForApproval(token);
+    });
+  } catch(err){
+    console.error(err);
+    statusEl.innerHTML = '<span class="error">Error: ' + (err.message || err) + '</span>';
+  }
 });
 
-function unlockDownload(){
-  // create blob URL from base64 PDF and set link
-  const byteCharacters = atob(samplePdfBase64);
-  const byteNumbers = new Array(byteCharacters.length);
-  for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
-  }
-  const byteArray = new Uint8Array(byteNumbers);
-  const blob = new Blob([byteArray], {type: 'application/pdf'});
-  const url = URL.createObjectURL(blob);
+// snapshot history
+function addHistoryRecord(r){
+  const div = document.createElement('div');
+  div.style.borderBottom = '1px dashed #eee';
+  div.style.padding = '8px 6px';
+  div.innerHTML = `<strong>${r.name}</strong><br>Amt: ₹${r.amount} — <small>${new Date(r.createdAt).toLocaleString()}</small><br>Status: <span id="st_${r.token}">${r.status}</span><br>Token: <code>${r.token}</code>`;
+  historyEl.prepend(div);
+}
 
-  const dl = document.getElementById('dl');
-  dl.href = url;
-  // show download area
+// listen for approval event -> enable download
+function listenForApproval(token){
+  db.ref('uploads/' + token + '/status').on('value', snap => {
+    const val = snap.val();
+    if(!val) return;
+    // update status in history display if present
+    const el = document.getElementById('st_' + token);
+    if(el) el.textContent = val;
+    if(val === 'approved'){
+      // fetch pdfUrl under uploads/{token}/pdfUrl OR global default
+      db.ref('uploads/' + token + '/pdfUrl').once('value').then(s => {
+        let pdf = s.val();
+        if(pdf){
+          enableDownload(pdf);
+        } else {
+          // fallback: check global default
+          db.ref('default/pdfUrl').once('value').then(ss => {
+            const glob = ss.val();
+            if(glob) enableDownload(glob);
+            else statusEl.innerHTML += '<br><span class="muted">Approved but PDF URL not set. Contact admin.</span>';
+          });
+        }
+      });
+    }
+    if(val === 'rejected'){
+      statusEl.innerHTML = '<span class="error">Your upload was rejected. Contact support.</span>';
+    }
+  });
+}
+
+// enable download link
+function enableDownload(pdfUrl){
   document.getElementById('downloadArea').style.display = 'block';
-
-  // auto-click to start download immediately (optional)
-  setTimeout(()=> dl.click(), 300);
+  const dl = document.getElementById('downloadBtn');
+  dl.href = pdfUrl;
+  statusEl.innerHTML = '<span class="success">Approved — download ready.</span>';
 }
 
-// Reset demo (for testing)
-function resetDemo(){
-  document.getElementById('status').innerHTML = "";
-  document.getElementById('downloadArea').style.display = 'none';
+// load existing uploads list (brief)
+db.ref('uploads').limitToLast(10).on('value', snap => {
+  historyEl.innerHTML = '';
+  const val = snap.val();
+  if(!val) return;
+  const arr = Object.values(val).sort((a,b)=>b.createdAt - a.createdAt);
+  arr.forEach(addHistoryRecord);
+});
+
+// ========== Simple realtime chat (global room) ==========
+const chatBox = document.getElementById('chatBox');
+const chatName = document.getElementById('chatName');
+const chatMsg = document.getElementById('chatMsg');
+const sendChat = document.getElementById('sendChat');
+
+function addChatMessage(msg){
+  const div = document.createElement('div');
+  div.className = 'chat-msg';
+  if(msg.name && msg.name.toLowerCase().includes('admin')) div.style.background = '#fff6e6';
+  div.innerHTML = `<strong>${escapeHtml(msg.name || 'Guest')}</strong> <small style="color:#666">• ${new Date(msg.ts).toLocaleTimeString()}</small><div style="margin-top:6px">${escapeHtml(msg.text)}</div>`;
+  chatBox.appendChild(div);
+  chatBox.scrollTop = chatBox.scrollHeight;
 }
 
+sendChat.addEventListener('click', () => {
+  const name = (chatName.value || 'Guest').slice(0,40);
+  const text = chatMsg.value.trim();
+  if(!text) return;
+  const m = { name: name, text: text, ts: Date.now() };
+  db.ref('chat').push(m);
+  chatMsg.value = '';
+});
+
+db.ref('chat').limitToLast(100).on('child_added', snap => {
+  const msg = snap.val();
+  addChatMessage(msg);
+});
+
+function escapeHtml(s){
+  return (s+'').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
 </script>
 </body>
 </html>
