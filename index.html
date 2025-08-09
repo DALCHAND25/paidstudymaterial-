@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Demo: UPI pay → PDF download (Simulation)</title>
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;max-width:760px;margin:24px auto;padding:16px}
+  .card{border:1px solid #e0e0e0;border-radius:8px;padding:18px;box-shadow:0 6px 18px rgba(0,0,0,.04)}
+  h1{font-size:20px;margin:0 0 12px}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  img.qr{width:220px;height:220px;border:1px solid #ddd;padding:6px;background:#fff}
+  button{padding:10px 14px;font-size:15px;border-radius:6px;border:0;background:#1e88e5;color:#fff;cursor:pointer}
+  button.ghost{background:#fff;border:1px solid #ccc;color:#222}
+  p.small{font-size:13px;color:#555}
+  a.download-link{display:inline-block;margin-top:14px;padding:10px 14px;background:#43a047;color:#fff;border-radius:6px;text-decoration:none}
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>DJB Tech — Demo: UPI payment se PDF unlock (Simulation)</h1>
+
+    <p class="small">Note: Yeh **demo** hai. Real payment verification ke liye backend + payment gateway (Razorpay/Cashfree/etc.) chahiye.</p>
+
+    <div class="row" style="margin-top:12px">
+      <div>
+        <p><strong>UPI ID:</strong> <code>7879342457@ybl</code></p>
+        <p><strong>Amount:</strong> <span id="amountDisplay">50.00</span> INR</p>
+
+        <!-- UPI deep link (mobile opens UPI app) -->
+        <p>
+          <a id="upiLink" href="#" onclick="openUpi()" class="ghost" style="text-decoration:none;padding:8px 10px;border-radius:6px;border:1px solid #ccc;color:#222;background:#fff">Open UPI app</a>
+        </p>
+
+        <p class="small">Agar aap real payment kar chuke ho, "I paid" button dabayein (demo ke liye ye manual). Production me gateway webhook se server automatically mark karega.</p>
+
+        <p style="margin-top:8px">
+          <button id="paidBtn">I paid — Unlock PDF</button>
+          <button id="resetBtn" class="ghost" style="margin-left:8px" onclick="resetDemo()">Reset</button>
+        </p>
+
+        <div id="status" style="margin-top:12px"></div>
+
+        <!-- download link (initially hidden) -->
+        <div id="downloadArea" style="margin-top:14px;display:none">
+          <a id="dl" class="download-link" href="#" download="document.pdf">Download PDF</a>
+          <p class="small" style="margin-top:8px">Yeh download ek demo PDF hai (one-time demo). Replace kar ke apna real PDF yahan host karein ya backend se serve karein.</p>
+        </div>
+      </div>
+
+      <div>
+        <!-- QR of UPI deep link (scan to open UPI app) -->
+        <img id="qrImg" class="qr" alt="QR">
+        <p class="small" style="margin-top:8px">Scan QR to open UPI app on mobile.</p>
+      </div>
+    </div>
+  </div>
+
+<script>
+/*
+  Demo behavior:
+  - Constructs UPI deep link using the UPI ID and amount.
+  - QR image uses Google Chart API to show the deep link.
+  - Clicking "Open UPI app" opens the deep link (mobile).
+  - "I paid — Unlock PDF" simulates successful payment and unlocks a pre-bundled PDF (base64).
+  - This is purely frontend simulation — replace with backend verification for production.
+*/
+
+const UPI_ID = "7879342457@ybl";
+let amount = 50.00; // default; user can edit this var if needed
+
+document.getElementById('amountDisplay').textContent = amount.toFixed(2);
+
+// Build UPI deep link (pa,pn,tr,am,cu)
+const tokenRef = 'QRDEMO' + Math.floor(Date.now()/1000);
+const upiDeep = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent('DJB Tech')}&tr=${encodeURIComponent(tokenRef)}&am=${encodeURIComponent(amount.toFixed(2))}&cu=INR`;
+
+// set QR
+const qrUrl = 'https://chart.googleapis.com/chart?cht=qr&chs=400x400&chl=' + encodeURIComponent(upiDeep);
+document.getElementById('qrImg').src = qrUrl;
+
+// set upi link action
+function openUpi(){
+  // On mobile this should prompt the UPI app
+  window.location.href = upiDeep;
+}
+
+// Demo PDF (small sample) encoded as base64
+// NOTE: This is a tiny generated PDF that says "Hello PDF".
+const samplePdfBase64 = 
+  "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUiBdIC9Db3VudCAxID4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlIC9QYXJlbnQgMiAwIFIgL01lZGlhQm94IFswIDAgMjAwIDIwMCBdIC9Db250ZW50cyA0IDAgUiA+PgplbmRvYmoKNCAwIG9iago8PCAvTGVuZ3RoIDU1ID4+c3RyZWFtCkJUCg9GMSAxMiBUZgoxMCAxNTAgVGQKKC5IZWxsb1BERikgVGpFCkVUCmVuZHN0cmVhbQplbmRvYmoKcmVmcnt9CnRyYWlsZXIKPDwgL1Jvb3QgMSAwIFIvU2l6ZSA1ID4+Cj4Kc3RhcnR4cmVmCjMyMgpFT0Y=";
+
+// When user clicks paidBtn, simulate success and show download
+document.getElementById('paidBtn').addEventListener('click', () => {
+  // Simulate server verification delay
+  const status = document.getElementById('status');
+  status.innerHTML = "<em>Checking payment...</em>";
+  setTimeout(() => {
+    // Simulate success
+    status.innerHTML = "<strong style='color:green;'>Payment received (simulated).</strong>";
+    unlockDownload();
+  }, 900); // small delay for UX
+});
+
+function unlockDownload(){
+  // create blob URL from base64 PDF and set link
+  const byteCharacters = atob(samplePdfBase64);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], {type: 'application/pdf'});
+  const url = URL.createObjectURL(blob);
+
+  const dl = document.getElementById('dl');
+  dl.href = url;
+  // show download area
+  document.getElementById('downloadArea').style.display = 'block';
+
+  // auto-click to start download immediately (optional)
+  setTimeout(()=> dl.click(), 300);
+}
+
+// Reset demo (for testing)
+function resetDemo(){
+  document.getElementById('status').innerHTML = "";
+  document.getElementById('downloadArea').style.display = 'none';
+}
+
+</script>
+</body>
+</html>
